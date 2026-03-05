@@ -25,3 +25,13 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Generated/cache folders - Flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/.kotlin/
+
+# Windows artifact
+nul
