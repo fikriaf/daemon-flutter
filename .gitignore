@@ -35,3 +35,9 @@ mobile/android/.kotlin/
 
 # Windows artifact
 nul
+
+# Java heap dump
+*.hprof
+
+# APK files
+*.apk
