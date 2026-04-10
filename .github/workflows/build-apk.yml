@@ -1,10 +1,11 @@
-name: Daemon Protocol Build
+name: Daemon Protocol Build & Release
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+
+permissions:
+  contents: write # Dibutuhkan untuk membuat Release
 
 jobs:
   build:
@@ -44,8 +45,10 @@ jobs:
       - name: Rename APK
         run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/Daemon-Protocol-v${{ env.APP_VERSION }}.apk"
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
         with:
-          name: Daemon-Protocol-v${{ env.APP_VERSION }}
-          path: mobile/build/app/outputs/flutter-apk/Daemon-Protocol-v${{ env.APP_VERSION }}.apk
+          tag_name: v${{ env.APP_VERSION }}
+          name: Release v${{ env.APP_VERSION }}
+          files: mobile/build/app/outputs/flutter-apk/Daemon-Protocol-v${{ env.APP_VERSION }}.apk
+          generate_release_notes: true
