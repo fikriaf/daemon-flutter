@@ -353,7 +353,12 @@ class AgentSettings {
 
 class ApiKey {
   final String id;
+  /// The short prefix (first ~19 chars) stored in DB and returned by list endpoint.
+  /// Used for display only.
   final String keyPrefix;
+  /// The full plaintext key — only present immediately after creation
+  /// (backend returns it once in the `key` field of the POST response).
+  final String? fullKey;
   final String? label;
   final bool isActive;
   final DateTime createdAt;
@@ -362,6 +367,7 @@ class ApiKey {
   ApiKey({
     required this.id,
     required this.keyPrefix,
+    this.fullKey,
     this.label,
     required this.isActive,
     required this.createdAt,
@@ -369,9 +375,14 @@ class ApiKey {
   });
 
   factory ApiKey.fromJson(Map<String, dynamic> json) {
+    // POST /api-keys response uses `key` for the full key and `prefix` for the
+    // short prefix. GET list uses `key_prefix`. Handle both shapes.
+    final prefix = (json['key_prefix'] ?? json['prefix'] ?? '') as String;
+    final full   = json['key'] as String?;
     return ApiKey(
       id: json['id'] ?? '',
-      keyPrefix: json['key_prefix'] ?? '',
+      keyPrefix: prefix,
+      fullKey: full,
       label: json['label'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] != null 

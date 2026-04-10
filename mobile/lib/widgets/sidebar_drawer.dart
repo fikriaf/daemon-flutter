@@ -20,6 +20,7 @@ class SidebarDrawer extends ConsumerStatefulWidget {
 class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
   List<ChatSession> _sessions = [];
   bool _loadingHistory = false;
+  bool _historyError = false;
 
   @override
   void initState() {
@@ -28,12 +29,23 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
   }
 
   Future<void> _loadHistory() async {
-    setState(() => _loadingHistory = true);
+    setState(() {
+      _loadingHistory = true;
+      _historyError = false;
+    });
     try {
       final sessions = await apiProvider.agentService.getChats();
-      if (mounted) setState(() { _sessions = sessions; _loadingHistory = false; });
+      if (mounted)
+        setState(() {
+          _sessions = sessions;
+          _loadingHistory = false;
+        });
     } catch (_) {
-      if (mounted) setState(() => _loadingHistory = false);
+      if (mounted)
+        setState(() {
+          _loadingHistory = false;
+          _historyError = true;
+        });
     }
   }
 
@@ -48,7 +60,8 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
     // onSessionTap so this branch is only hit for unknown/future screens.
     final currentPath = GoRouterState.of(context).uri.toString();
     Navigator.pop(context);
-    if (!currentPath.startsWith('/discover') && !currentPath.startsWith('/finance')) {
+    if (!currentPath.startsWith('/discover') &&
+        !currentPath.startsWith('/finance')) {
       context.go('/', extra: session);
     }
     // If somehow on discover/finance without onSessionTap, do nothing — the
@@ -59,7 +72,7 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final isLoggedIn = authState.isLoggedIn;
-    
+
     // Get the current path to determine context and active state
     final currentPath = GoRouterState.of(context).uri.toString();
     final isSandboxContext = currentPath.startsWith('/sandbox');
@@ -92,7 +105,7 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Context Switcher (Always visible)
             _DrawerItem(
               icon: Icons.search,
@@ -112,7 +125,7 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                 context.go('/sandbox');
               },
             ),
-            
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Divider(color: AppTheme.borderLight),
@@ -167,12 +180,21 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                 },
               ),
               _DrawerItem(
-                icon: Icons.public,
-                title: 'World Monitor',
+                icon: Icons.radar,
+                title: 'World Radar',
                 isActive: currentPath == '/worldmonitor',
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/worldmonitor');
+                },
+              ),
+              _DrawerItem(
+                icon: Icons.verified_user,
+                title: 'Audit',
+                isActive: currentPath == '/audit',
+                onTap: () {
+                  Navigator.pop(context);
+                  context.go('/audit');
                 },
               ),
               _DrawerItem(
@@ -194,7 +216,7 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                 },
               ),
             ],
-            
+
             const SizedBox(height: 24),
 
             // History section — always shown
@@ -207,10 +229,15 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                     'History',
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
-                  if (!_loadingHistory && _sessions.isNotEmpty)
+                  if (!_loadingHistory &&
+                      (_sessions.isNotEmpty || _historyError))
                     GestureDetector(
                       onTap: _loadHistory,
-                      child: const Icon(Icons.refresh, size: 14, color: AppTheme.textSecondary),
+                      child: const Icon(
+                        Icons.refresh,
+                        size: 14,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
                 ],
               ),
@@ -225,39 +252,78 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                         child: SkeletonListTile(hasSubtitle: false),
                       ),
                     )
-                  : _sessions.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Icon(Icons.history, color: AppTheme.textSecondary, size: 32),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: _sessions.length,
-                          itemBuilder: (context, index) {
-                            final session = _sessions[index];
-                            return ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                              leading: const Icon(Icons.chat_bubble_outline, color: AppTheme.textSecondary, size: 18),
-                              title: Text(
-                                session.title,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              onTap: () => _onSessionTap(context, session),
-                            );
-                          },
+                  : _historyError
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: AppTheme.textSecondary,
+                              size: 24,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Could not load history',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppTheme.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                            TextButton(
+                              onPressed: _loadHistory,
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
+                      ),
+                    )
+                  : _sessions.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Icon(
+                          Icons.history,
+                          color: AppTheme.textSecondary,
+                          size: 32,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: _sessions.length,
+                      itemBuilder: (context, index) {
+                        final session = _sessions[index];
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                          ),
+                          leading: const Icon(
+                            Icons.chat_bubble_outline,
+                            color: AppTheme.textSecondary,
+                            size: 18,
+                          ),
+                          title: Text(
+                            session.title,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => _onSessionTap(context, session),
+                        );
+                      },
+                    ),
             ),
-
 
             // Bottom section: User profile & settings
             const Divider(color: AppTheme.border, height: 1),
             if (isLoggedIn)
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 leading: Container(
                   width: 36,
                   height: 36,
@@ -277,9 +343,9 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                 ),
                 title: Text(
                   authState.email ?? 'User',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textPrimary,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -295,14 +361,20 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+                      icon: const Icon(
+                        Icons.settings_outlined,
+                        color: AppTheme.textSecondary,
+                      ),
                       onPressed: () {
                         Navigator.pop(context);
                         context.push('/settings');
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.logout, color: AppTheme.textSecondary),
+                      icon: const Icon(
+                        Icons.logout,
+                        color: AppTheme.textSecondary,
+                      ),
                       onPressed: () {
                         ref.read(authStateProvider.notifier).logout();
                         Navigator.pop(context);
@@ -313,7 +385,10 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
               )
             else
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
                 leading: Container(
                   width: 36,
                   height: 36,
@@ -322,13 +397,17 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppTheme.borderLight),
                   ),
-                  child: const Icon(Icons.login, color: AppTheme.textSecondary, size: 18),
+                  child: const Icon(
+                    Icons.login,
+                    color: AppTheme.textSecondary,
+                    size: 18,
+                  ),
                 ),
                 title: Text(
                   'Sign In',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textPrimary,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppTheme.textPrimary),
                 ),
                 subtitle: Text(
                   'Connect wallet & email',
@@ -336,7 +415,11 @@ class _SidebarDrawerState extends ConsumerState<SidebarDrawer> {
                     color: AppTheme.textSecondary,
                   ),
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, color: AppTheme.textSecondary, size: 16),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios,
+                  color: AppTheme.textSecondary,
+                  size: 16,
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   context.push('/login');
@@ -381,4 +464,3 @@ class _DrawerItem extends StatelessWidget {
     );
   }
 }
-

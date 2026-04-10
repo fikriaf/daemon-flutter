@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/sidebar_drawer.dart';
 import '../widgets/history_drawer.dart';
 import '../widgets/global_chat_input.dart';
+import '../widgets/address_graph_widget.dart';
 import '../theme/app_theme.dart';
 import '../config/api_config.dart';
 import '../services/provider.dart';
@@ -71,6 +72,9 @@ class ChatMessage {
   int stepCount; // incremented per reasoning/tool/content block added
   StreamStep streamStep; // current stream phase
   int likeState; // 0=none, 1=liked, -1=unliked
+  /// Graph data injected by backend after a graph tool call.
+  /// Set on `done` event so graph only appears when streaming ends.
+  Map<String, dynamic>? graphData;
 
   ChatMessage.user(this.userContent)
       : role = 'user',
@@ -130,6 +134,8 @@ class _RootScreenState extends State<RootScreen> {
   final List<ChatMessage> _messages = [];
   List<Source> _sources = [];
   String? _currentSessionId;
+  // Temporary holder for graph_data received before the `done` event.
+  Map<String, dynamic>? _pendingGraphData;
 
   // Typewriter animation
   final List<String> _animatedWords = ['know', 'interact', 'analyze'];
@@ -228,7 +234,7 @@ class _RootScreenState extends State<RootScreen> {
         });
         _scrollToBottom();
       }
-    } catch (e) {
+    } catch (e, st) {
       if (mounted) {
         setState(() => _isSearching = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -290,6 +296,7 @@ class _RootScreenState extends State<RootScreen> {
       _messages.add(ChatMessage.user(userMessage));
       _messages.add(ChatMessage.assistant(modelName: modelDisplayName));
       _sources = [];
+      _pendingGraphData = null;
     });
     _textController.clear();
     _scrollToBottom();
@@ -403,6 +410,12 @@ class _RootScreenState extends State<RootScreen> {
               }
             });
             _scrollToBottom();
+          } else if (type == 'graph_data') {
+            // Store temporarily; applied to message on `done`
+            final nodes = data['nodes'];
+            final edges = data['edges'];
+            _pendingGraphData = {'nodes': nodes, 'edges': edges};
+            debugPrint('Graph data stored: ${(nodes as List?)?.length ?? 0} nodes, ${(edges as List?)?.length ?? 0} edges');
           } else if (type == 'done') {
             final newSessionId = data['session_id'] as String?;
             if (newSessionId != null) {
@@ -420,6 +433,22 @@ class _RootScreenState extends State<RootScreen> {
                     .toList();
               });
             }
+            // Attach graph data + mark done in one setState so
+            // (!_isSearching && msg.graphData != null) is true in same rebuild.
+            final captured = _pendingGraphData;
+            _pendingGraphData = null;
+            setState(() {
+              _isSearching = false;
+              if (_messages.isNotEmpty && _messages.last.role == 'assistant') {
+                _messages.last.streamStep = StreamStep.done;
+                if (captured != null) {
+                  _messages.last.graphData = captured;
+                  debugPrint('Graph data attached: ${(captured['nodes'] as List?)?.length ?? 0} nodes');
+                }
+              }
+            });
+            // Scroll after frame so the graph widget has been laid out.
+            WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
           }
         } catch (e) {
           debugPrint('Parse error: $e');
@@ -848,6 +877,15 @@ class _RootScreenState extends State<RootScreen> {
                       url: source.url),
               ],
             ),
+          ),
+        ],
+
+        // Address graph — shown after streaming ends if backend sent graph_data
+        if (!_isSearching && isLast && msg.graphData != null) ...[
+          const SizedBox(height: 16),
+          _AnimatedEntry(
+            key: ValueKey('graph_$msgIdx'),
+            child: AddressGraphWidget(graphData: msg.graphData!),
           ),
         ],
 

@@ -18,8 +18,7 @@ class ApiException implements Exception {
 class ApiService {
   String? _apiKey;
 
-  ApiService({String? apiKey, bool isSandbox = false}) 
-      : _apiKey = apiKey;
+  ApiService({String? apiKey, bool isSandbox = false}) : _apiKey = apiKey;
 
   void setApiKey(String? key) => _apiKey = key;
   bool get hasApiKey => _apiKey != null && _apiKey!.isNotEmpty;
@@ -30,16 +29,13 @@ class ApiService {
   };
 
   Future<Map<String, dynamic>> get(String endpoint, {bool? isSandbox}) async {
-    final baseUrl = isSandbox == true 
-        ? ApiConfig.sandboxBaseUrl 
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
         : ApiConfig.baseUrl;
     final url = '$baseUrl$endpoint';
-    
+
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: _headers,
-      );
+      final response = await http.get(Uri.parse(url), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       throw ApiException('Network error: $e');
@@ -47,21 +43,46 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> post(
-    String endpoint, 
+    String endpoint,
     Map<String, dynamic> body, {
     bool? isSandbox,
   }) async {
-    final baseUrl = isSandbox == true 
-        ? ApiConfig.sandboxBaseUrl 
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
         : ApiConfig.baseUrl;
     final url = '$baseUrl$endpoint';
-    
+
     try {
       final response = await http.post(
         Uri.parse(url),
         headers: _headers,
         body: jsonEncode(body),
       );
+      return _handleResponse(response);
+    } catch (e) {
+      throw ApiException('Network error: $e');
+    }
+  }
+
+  /// Like [get] but uses [bearerToken] as the Authorization header instead of
+  /// the stored API key. Used for session-authenticated endpoints (e.g. get api-key).
+  Future<Map<String, dynamic>> getWithBearer(
+    String endpoint, {
+    required String bearerToken,
+    bool? isSandbox,
+  }) async {
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
+        : ApiConfig.baseUrl;
+    final url = '$baseUrl$endpoint';
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $bearerToken',
+    };
+
+    try {
+      final response = await http.get(Uri.parse(url), headers: headers);
       return _handleResponse(response);
     } catch (e) {
       throw ApiException('Network error: $e');
@@ -99,15 +120,15 @@ class ApiService {
   }
 
   Stream<String> streamPost(
-    String endpoint, 
+    String endpoint,
     Map<String, dynamic> body, {
     bool? isSandbox,
   }) async* {
-    final baseUrl = isSandbox == true 
-        ? ApiConfig.sandboxBaseUrl 
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
         : ApiConfig.baseUrl;
     final url = '$baseUrl$endpoint';
-    
+
     try {
       final client = http.Client();
       final request = http.Request('POST', Uri.parse(url));
@@ -115,10 +136,13 @@ class ApiService {
       request.headers['Accept'] = 'text/event-stream';
       request.headers['Cache-Control'] = 'no-cache';
       request.body = jsonEncode(body);
-      
+
       final response = await client.send(request);
-      
-      await for (final chunk in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+
+      await for (final chunk
+          in response.stream
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
         if (chunk.startsWith('data: ')) {
           final data = chunk.substring(6);
           if (data == '[DONE]') break;
@@ -136,15 +160,15 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> patch(
-    String endpoint, 
+    String endpoint,
     Map<String, dynamic> body, {
     bool? isSandbox,
   }) async {
-    final baseUrl = isSandbox == true 
-        ? ApiConfig.sandboxBaseUrl 
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
         : ApiConfig.baseUrl;
     final url = '$baseUrl$endpoint';
-    
+
     try {
       final response = await http.patch(
         Uri.parse(url),
@@ -157,17 +181,17 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> delete(String endpoint, {bool? isSandbox}) async {
-    final baseUrl = isSandbox == true 
-        ? ApiConfig.sandboxBaseUrl 
+  Future<Map<String, dynamic>> delete(
+    String endpoint, {
+    bool? isSandbox,
+  }) async {
+    final baseUrl = isSandbox == true
+        ? ApiConfig.sandboxBaseUrl
         : ApiConfig.baseUrl;
     final url = '$baseUrl$endpoint';
-    
+
     try {
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: _headers,
-      );
+      final response = await http.delete(Uri.parse(url), headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       throw ApiException('Network error: $e');
@@ -182,14 +206,14 @@ class ApiService {
       if (decoded is List) return {'data': decoded};
       return decoded as Map<String, dynamic>;
     }
-    
+
     dynamic errorData;
     try {
       errorData = jsonDecode(response.body);
     } catch (_) {
       errorData = response.body;
     }
-    
+
     throw ApiException(
       errorData['error']?['message'] ?? 'Request failed',
       statusCode: response.statusCode,

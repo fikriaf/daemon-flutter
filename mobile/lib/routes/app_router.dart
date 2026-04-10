@@ -8,12 +8,13 @@ import '../screens/library_screen.dart';
 import '../screens/spaces_screen.dart';
 import '../screens/cyclops_screen.dart';
 import '../screens/obscura_screen.dart';
-import '../screens/world_monitor_screen.dart';
+import '../screens/world_radar_screen.dart';
 import '../screens/sandbox_screen.dart';
 import '../screens/sandbox_connectors_screen.dart';
 import '../screens/sandbox_files_screen.dart';
 import '../screens/sandbox_live_screen.dart';
 import '../screens/finance_screen.dart';
+import '../screens/audit_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/verify_email_screen.dart';
 import '../services/agent_service.dart';
@@ -29,7 +30,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => RootScreen(
-          initialSession: state.extra is ChatSession ? state.extra as ChatSession : null,
+          initialSession: state.extra is ChatSession
+              ? state.extra as ChatSession
+              : null,
         ),
       ),
       GoRoute(
@@ -54,12 +57,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/spaces/worldmonitor',
-        builder: (context, state) => const WorldMonitorScreen(),
+        builder: (context, state) => const WorldRadarScreen(),
       ),
       GoRoute(
         path: '/worldmonitor',
-        builder: (context, state) => WorldMonitorScreen(
-          initialSession: state.extra is ChatSession ? state.extra as ChatSession : null,
+        builder: (context, state) => WorldRadarScreen(
+          initialSession: state.extra is ChatSession
+              ? state.extra as ChatSession
+              : null,
         ),
       ),
       GoRoute(
@@ -82,27 +87,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/finance',
         builder: (context, state) => const FinanceScreen(),
       ),
+      GoRoute(path: '/audit', builder: (context, state) => const AuditScreen()),
       GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       // Email verification deep link: daemonai://verify-email?token=xxx
       GoRoute(
         path: '/verify-email',
-        builder: (context, state) => VerifyEmailScreen(
-          token: state.uri.queryParameters['token'],
-        ),
+        builder: (context, state) =>
+            VerifyEmailScreen(token: state.uri.queryParameters['token']),
       ),
       // Already verified via browser redirect: daemonai://verified?email=xxx
       GoRoute(
         path: '/verified',
-        builder: (context, state) => VerifyEmailScreen(
-          email: state.uri.queryParameters['email'],
-        ),
+        builder: (context, state) =>
+            VerifyEmailScreen(email: state.uri.queryParameters['email']),
       ),
     ],
   );

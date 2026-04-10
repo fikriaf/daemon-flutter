@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Address Graph</title>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/reactflow@11/dist/umd/index.js" crossorigin></script>
+  <link rel="stylesheet" href="https://unpkg.com/reactflow@11/dist/style.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif;
+      overflow: hidden;
+    }
+
+    #root { width: 100vw; height: 100vh; }
+
+    /* ── ReactFlow canvas ── */
+    .react-flow__renderer { background: #0a0a0f; }
+    .react-flow__background { background: #0a0a0f !important; }
+    .react-flow__background pattern circle { fill: #1a1a2e; }
+
+    /* Edges */
+    .react-flow__edge-path { stroke-width: 1.5; opacity: 0.85; }
+    .react-flow__edge.selected .react-flow__edge-path { opacity: 1; }
+    .react-flow__edge-textbg  { fill: #0d0d18 !important; fill-opacity: 0.92 !important; rx: 3; }
+    .react-flow__edge-text    { fill: #94a3b8 !important; font-size: 9px !important; font-family: 'SF Mono', 'Fira Code', monospace !important; }
+
+    .react-flow__attribution { display: none; }
+
+    .react-flow__handle {
+      width: 5px !important; height: 5px !important;
+      background: transparent !important;
+      border: none !important;
+      min-width: unset !important; min-height: unset !important;
+    }
+
+    /* Controls */
+    .react-flow__controls {
+      bottom: 10px !important; left: 10px !important;
+      box-shadow: none !important;
+    }
+    .react-flow__controls-button {
+      background: #13131f !important;
+      border: 1px solid #252540 !important;
+      color: #64748b !important;
+      fill: #64748b !important;
+      width: 22px !important; height: 22px !important;
+      border-radius: 5px !important;
+      margin-bottom: 3px !important;
+    }
+    .react-flow__controls-button:hover { background: #1e1e35 !important; fill: #818cf8 !important; }
+    .react-flow__controls-button svg   { width: 10px; height: 10px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    /* ── Flutter bridge ── */
+    function notifyReady() {
+      if (window.FlutterGraphReady) FlutterGraphReady.postMessage('ready');
+    }
+    function notifyError(msg) {
+      console.error('[graph]', msg);
+      if (window.FlutterGraphError) FlutterGraphError.postMessage(String(msg));
+    }
+
+    /* ── Color palette by entity type ── */
+    var PALETTE = {
+      center:    { bg: '#0c1e3a', border: '#3b82f6', text: '#93c5fd', glow: '#3b82f640', badge: '#1d4ed8' },
+      cex:       { bg: '#071e14', border: '#10b981', text: '#6ee7b7', glow: '#10b98140', badge: '#065f46' },
+      defi:      { bg: '#160d2e', border: '#8b5cf6', text: '#c4b5fd', glow: '#8b5cf640', badge: '#4c1d95' },
+      contract:  { bg: '#1a1200', border: '#f59e0b', text: '#fcd34d', glow: '#f59e0b40', badge: '#78350f' },
+      hacker:    { bg: '#1f0606', border: '#ef4444', text: '#fca5a5', glow: '#ef444440', badge: '#7f1d1d' },
+      mixer:     { bg: '#1f0606', border: '#ef4444', text: '#fca5a5', glow: '#ef444440', badge: '#7f1d1d' },
+      bridge:    { bg: '#021520', border: '#06b6d4', text: '#67e8f9', glow: '#06b6d440', badge: '#164e63' },
+      exchange:  { bg: '#071e14', border: '#10b981', text: '#6ee7b7', glow: '#10b98140', badge: '#065f46' },
+      wallet:    { bg: '#0d0d20', border: '#6366f1', text: '#a5b4fc', glow: '#6366f140', badge: '#312e81' },
+      token:     { bg: '#1a1000', border: '#eab308', text: '#fde047', glow: '#eab30840', badge: '#713f12' },
+      unknown:   { bg: '#0f0f18', border: '#334155', text: '#94a3b8', glow: '#33415540', badge: '#1e293b' },
+    };
+
+    /* ── Confidence colors ── */
+    var CONF_COLOR = { high: '#10b981', medium: '#f59e0b', low: '#6b7280' };
+
+    /* ── Chain abbreviations ── */
+    var CHAIN_SHORT = {
+      ethereum: 'ETH', bitcoin: 'BTC', solana: 'SOL', arbitrum: 'ARB',
+      optimism: 'OP', polygon: 'MATIC', avalanche: 'AVAX', bsc: 'BSC',
+      base: 'BASE', fantom: 'FTM',
+    };
+
+    /* ── Format numbers ── */
+    function fmtUSD(v) {
+      if (v == null || v === 0) return '';
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+      return '$' + v.toFixed(2);
+    }
+    function fmtCount(v) {
+      if (v == null || v === 0) return '';
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M txs';
+      if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K txs';
+      return v + ' txs';
+    }
+
+    /* ── Build 3-COLUMN layout ──
+       LEFT  (-H_GAP): inflow nodes  (flow === 'in',  counterparty → center)
+       CENTER (0):     queried address
+       RIGHT (+H_GAP): outflow nodes (flow === 'out', center → counterparty)
+       Nodes with unknown/both direction go to the right as fallback.
+    ── */
+    var H_GAP = 260;  // horizontal distance center ↔ side columns
+
+    function buildLayout(rawNodes, rawEdges) {
+      if (!rawNodes || rawNodes.length === 0) return { nodes: [], edges: [] };
+
+      var centerNode = null;
+      for (var i = 0; i < rawNodes.length; i++) {
+        if (rawNodes[i].type === 'center') { centerNode = rawNodes[i]; break; }
+      }
+      if (!centerNode) centerNode = rawNodes[0];
+      var centerId = centerNode.id;
+
+      // Build a map: nodeId → flow direction based on edges
+      // edge.flow === 'out' means center sent to this node  → RIGHT
+      // edge.flow === 'in'  means this node sent to center  → LEFT
+      var flowMap = {};
+      if (rawEdges) {
+        for (var ei = 0; ei < rawEdges.length; ei++) {
+          var e = rawEdges[ei];
+          var otherId = e.source === centerId ? e.target : e.source;
+          // Prefer the explicit flow field on the edge if available
+          if (e.flow === 'out') flowMap[otherId] = 'out';
+          else if (e.flow === 'in') flowMap[otherId] = 'in';
+          else {
+            // Derive from source/target: if center is source → outflow
+            if (!flowMap[otherId]) {
+              flowMap[otherId] = (e.source === centerId) ? 'out' : 'in';
+            }
+          }
+        }
+      }
+
+      var outNodes = [];
+      var inNodes  = [];
+      var rest = rawNodes.filter(function(n) { return n.id !== centerId; });
+      for (var ri = 0; ri < rest.length; ri++) {
+        var rn = rest[ri];
+        if (flowMap[rn.id] === 'in') inNodes.push(rn);
+        else outNodes.push(rn);  // 'out' or unknown → right
+      }
+
+      // Vertical spacing per column — fixed 130px gap between node centres
+      // (node height ~90px → 40px breathing room between cards).
+      // No shrinking based on count; let fitView + scroll handle overflow.
+      var vGap = 85;
+
+      function colY(idx, count) {
+        // Center the column vertically
+        return (idx - (count - 1) / 2) * vGap;
+      }
+
+      // Center node Y = 0 (ReactFlow fitView will center everything)
+      var rfNodes = rawNodes.map(function(n) {
+        var isCenter = n.id === centerId;
+        var x, y;
+        if (isCenter) {
+          x = 0; y = 0;
+        } else if (flowMap[n.id] === 'in') {
+          var idx = inNodes.indexOf(n);
+          x = -H_GAP;
+          y = colY(idx, inNodes.length);
+        } else {
+          var idx = outNodes.indexOf(n);
+          x = H_GAP;
+          y = colY(idx, outNodes.length);
+        }
+
+        var pKey = (n.type && PALETTE[n.type]) ? n.type : 'unknown';
+        if (isCenter) pKey = 'center';
+        var p = PALETTE[pKey];
+        var side = isCenter ? 'center' : (flowMap[n.id] === 'in' ? 'left' : 'right');
+
+        return {
+          id: n.id,
+          type: 'graphNode',
+          position: { x: x, y: y },
+          data: {
+            label: n.label || (n.id.slice(0, 8) + '…'),
+            nodeType: n.type || 'unknown',
+            address: n.address,
+            entity: n.entity,
+            entityId: n.entityId,
+            entityLogo: n.entityLogo,
+            entityWebsite: n.entityWebsite,
+            entityTwitter: n.entityTwitter,
+            labelName: n.labelName,
+            labelConfidence: n.labelConfidence,
+            chain: n.chain,
+            isContract: n.isContract,
+            tags: n.tags || [],
+            palette: p,
+            isCenter: isCenter,
+            side: side,  // 'left' | 'right' | 'center'
+          },
+        };
+      });
+
+      var rfEdges = rawEdges ? rawEdges.map(function(e, i) {
+        var isOut = e.flow === 'out';
+        var isIn  = e.flow === 'in';
+        var edgeColor = isOut ? '#ef4444' : isIn ? '#10b981' : '#475569';
+
+        // Build edge label: USD volume + tx count
+        var parts = [];
+        if (e.usd) parts.push(fmtUSD(e.usd));
+        if (e.txCount) parts.push(fmtCount(e.txCount));
+        var edgeLabel = parts.join(' · ') || undefined;
+
+        // Wire handles so edges always run horizontally between columns:
+        // outflow: center(right) → counterparty(left)
+        // inflow:  counterparty(right) → center(left)
+        return {
+          id: 'e' + i,
+          source: e.source,
+          target: e.target,
+          sourceHandle: isOut ? 'src-right' : 'src-right',
+          targetHandle: isOut ? 'tgt-left'  : 'tgt-left',
+          type: 'smoothstep',
+          label: edgeLabel,
+          animated: false,
+          markerEnd: {
+            type: 'arrowclosed',
+            width: 12, height: 12,
+            color: edgeColor,
+          },
+          style: {
+            stroke: edgeColor,
+            strokeWidth: 1.5,
+            opacity: 0.8,
+          },
+          data: {
+            flow: e.flow,
+            usd: e.usd,
+            inboundUsd: e.inboundUsd,
+            outboundUsd: e.outboundUsd,
+            txCount: e.txCount,
+            tokenTransferCount: e.tokenTransferCount,
+            inboundCount: e.inboundCount,
+            outboundCount: e.outboundCount,
+          },
+        };
+      }) : [];
+
+      // ── Column header annotation nodes (non-interactive) ──
+      var topY = -vGap * 0.8;  // just above the topmost node
+      if (inNodes.length > 0) {
+        rfNodes.push({
+          id: '__hdr_in',
+          type: 'graphHeader',
+          position: { x: -H_GAP, y: topY - 28 },
+          selectable: false, draggable: false, connectable: false,
+          data: { label: '← INFLOW', color: '#10b981' },
+        });
+      }
+      if (outNodes.length > 0) {
+        rfNodes.push({
+          id: '__hdr_out',
+          type: 'graphHeader',
+          position: { x: H_GAP, y: topY - 28 },
+          selectable: false, draggable: false, connectable: false,
+          data: { label: 'OUTFLOW →', color: '#ef4444' },
+        });
+      }
+
+      return { nodes: rfNodes, edges: rfEdges };
+    }
+
+    /* ── Pending data buffer ── */
+    var _setNodes = null;
+    var _setEdges = null;
+    var _pending  = null;
+
+    window.setGraphData = function(data) {
+      console.log('[graph] setGraphData:', (data.nodes || []).length, 'nodes', (data.edges || []).length, 'edges');
+      var layout = buildLayout(data.nodes || [], data.edges || []);
+      if (_setNodes && _setEdges) {
+        _setNodes(layout.nodes);
+        _setEdges(layout.edges);
+      } else {
+        _pending = layout;
+      }
+    };
+
+    /* ── Init ── */
+    function init() {
+      var R  = window.React;
+      var RD = window.ReactDOM;
+      var RF = window.ReactFlow;
+
+      if (!R || !RD || !RF) {
+        notifyError('CDN not loaded: R=' + !!R + ' RD=' + !!RD + ' RF=' + !!RF);
+        return;
+      }
+
+      var createElement     = R.createElement;
+      var useEffect         = R.useEffect;
+      var useState          = R.useState;
+
+      var ReactFlow         = RF.ReactFlow;
+      var ReactFlowProvider = RF.ReactFlowProvider;
+      var Background        = RF.Background;
+      var Controls          = RF.Controls;
+      var Handle            = RF.Handle;
+      var Position          = RF.Position;
+      var useNodesState     = RF.useNodesState;
+      var useEdgesState     = RF.useEdgesState;
+
+      /* ── Custom node ── */
+      function GraphNode(props) {
+        var data     = props.data;
+        var p        = data.palette;
+        var isCenter = data.isCenter;
+        var imgError = useState(false);
+        var imgFailed = imgError[0], setImgFailed = imgError[1];
+
+        // Logo: only show if URL present and no load error
+        var showLogo = !!(data.entityLogo && !imgFailed);
+        var logoSize = isCenter ? 22 : 18;
+
+        // Chain badge text
+        var chainText = data.chain ? (CHAIN_SHORT[data.chain] || data.chain.toUpperCase()) : null;
+
+        // Confidence dot color
+        var confColor = data.labelConfidence ? (CONF_COLOR[data.labelConfidence] || '#6b7280') : null;
+
+        return createElement('div', {
+          style: {
+            background: p.bg,
+            border: '1.5px solid ' + p.border,
+            borderRadius: isCenter ? '14px' : '10px',
+            padding: isCenter ? '10px 14px' : '7px 10px',
+            minWidth: isCenter ? 120 : 100,
+            maxWidth: isCenter ? 200 : 180,
+            textAlign: 'left',
+            boxShadow: isCenter
+              ? '0 0 0 3px ' + p.glow
+              : 'none',
+            cursor: 'default',
+            userSelect: 'none',
+            position: 'relative',
+          }
+        },
+
+          /* ── Top row: logo + label ── */
+          createElement('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' } },
+
+            /* Logo */
+            showLogo ? createElement('img', {
+              src: data.entityLogo,
+              width: logoSize,
+              height: logoSize,
+              style: { borderRadius: '4px', flexShrink: 0, objectFit: 'cover' },
+              onError: function() { setImgFailed(true); },
+            }) : null,
+
+            /* Label */
+            createElement('div', {
+              style: {
+                color: p.text,
+                fontSize: isCenter ? 11 : 10,
+                fontWeight: isCenter ? 700 : 600,
+                lineHeight: 1.35,
+                wordBreak: 'break-all',
+                letterSpacing: '0.01em',
+                flex: 1,
+              }
+            }, data.label)
+          ),
+
+          /* ── Badges row ── */
+          createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: data.tags && data.tags.length ? '3px' : 0 } },
+
+            /* Entity type badge */
+            (data.nodeType && data.nodeType !== 'unknown' && !isCenter)
+              ? createElement('span', {
+                  style: {
+                    background: p.badge,
+                    color: p.text,
+                    fontSize: 7.5,
+                    fontWeight: 700,
+                    padding: '1px 4px',
+                    borderRadius: '3px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    opacity: 0.95,
+                  }
+                }, data.nodeType)
+              : null,
+
+            /* Chain badge */
+            chainText
+              ? createElement('span', {
+                  style: {
+                    background: '#1e293b',
+                    color: '#64748b',
+                    fontSize: 7.5,
+                    fontWeight: 600,
+                    padding: '1px 4px',
+                    borderRadius: '3px',
+                    letterSpacing: '0.04em',
+                  }
+                }, chainText)
+              : null,
+
+            /* Contract badge */
+            data.isContract
+              ? createElement('span', {
+                  style: {
+                    background: '#1c1400',
+                    color: '#ca8a04',
+                    fontSize: 7.5,
+                    fontWeight: 600,
+                    padding: '1px 4px',
+                    borderRadius: '3px',
+                  }
+                }, 'CONTRACT')
+              : null,
+
+            /* Confidence dot */
+            confColor
+              ? createElement('span', {
+                  style: {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    color: confColor,
+                    fontSize: 7.5,
+                  }
+                },
+                  createElement('span', { style: { width: 5, height: 5, borderRadius: '50%', background: confColor, display: 'inline-block' } }),
+                  data.labelConfidence
+                )
+              : null
+          ),
+
+          /* ── Tags ── */
+          (data.tags && data.tags.length > 0)
+            ? createElement('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '2px' } },
+                data.tags.slice(0, 3).map(function(tag, ti) {
+                  return createElement('span', {
+                    key: ti,
+                    style: {
+                      background: '#0f172a',
+                      color: '#475569',
+                      fontSize: 7,
+                      padding: '1px 3px',
+                      borderRadius: '2px',
+                      border: '1px solid #1e293b',
+                    }
+                  }, '#' + tag);
+                })
+              )
+            : null,
+
+          /* ── Handles ──
+             Center node needs both left (for inflow arriving) and right (for outflow departing).
+             Left-side nodes (inflow sources) emit from their RIGHT toward center.
+             Right-side nodes (outflow targets) receive on their LEFT from center.
+          ── */
+          // Left handle (target) — receives edges from the left
+          createElement(Handle, { id: 'tgt-left',  type: 'target', position: Position.Left,  style: { opacity: 0, pointerEvents: 'none' } }),
+          // Right handle (source) — sends edges to the right
+          createElement(Handle, { id: 'src-right', type: 'source', position: Position.Right, style: { opacity: 0, pointerEvents: 'none' } })
+        );
+      }
+
+      /* ── Header annotation node ── */
+      function GraphHeader(props) {
+        var data = props.data;
+        return createElement('div', {
+          style: {
+            color: data.color,
+            fontSize: 8.5,
+            fontWeight: 700,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            opacity: 0.6,
+            pointerEvents: 'none',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+          }
+        }, data.label);
+      }
+
+      /* ── Stable nodeTypes ref ── */
+      var NODE_TYPES = { graphNode: GraphNode, graphHeader: GraphHeader };
+
+      /* ── App ── */
+      function App() {
+        var nodesState    = useNodesState([]);
+        var edgesState    = useEdgesState([]);
+        var nodes         = nodesState[0], setNodes = nodesState[1], onNodesChange = nodesState[2];
+        var edges         = edgesState[0], setEdges = edgesState[1], onEdgesChange = edgesState[2];
+
+        useEffect(function() {
+          _setNodes = setNodes;
+          _setEdges = setEdges;
+
+          if (_pending) {
+            var d = _pending;
+            _pending = null;
+            setNodes(d.nodes);
+            setEdges(d.edges);
+          }
+
+          notifyReady();
+        }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+        return createElement(ReactFlow, {
+          nodes: nodes,
+          edges: edges,
+          nodeTypes: NODE_TYPES,
+          onNodesChange: onNodesChange,
+          onEdgesChange: onEdgesChange,
+          fitView: true,
+          fitViewOptions: { padding: 0.25, includeHiddenNodes: false },
+          minZoom: 0.15,
+          maxZoom: 4,
+          nodesDraggable: false,
+          nodesConnectable: false,
+          elementsSelectable: false,
+          panOnDrag: true,
+          zoomOnScroll: false,
+          zoomOnPinch: true,
+          zoomOnDoubleClick: false,
+          selectNodesOnDrag: false,
+          proOptions: { hideAttribution: true },
+          style: { background: '#0a0a0f' },
+        },
+          createElement(Controls, {
+            showZoom: true,
+            showFitView: true,
+            showInteractive: false,
+          })
+        );
+      }
+
+      RD.createRoot(document.getElementById('root')).render(
+        createElement(ReactFlowProvider, null, createElement(App))
+      );
+      console.log('[graph] rendered');
+    }
+
+    /* ── Wait for CDN ── */
+    function tryInit() {
+      if (window.React && window.ReactDOM && window.ReactFlow) { init(); return true; }
+      return false;
+    }
+
+    window.addEventListener('load', function() {
+      console.log('[graph] load event — React=' + !!window.React + ' RF=' + !!window.ReactFlow);
+      if (!tryInit()) {
+        var attempts = 0;
+        var timer = setInterval(function() {
+          attempts++;
+          if (tryInit()) { clearInterval(timer); }
+          else if (attempts >= 25) { clearInterval(timer); notifyError('CDN timeout after ' + (attempts * 200) + 'ms'); }
+        }, 200);
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

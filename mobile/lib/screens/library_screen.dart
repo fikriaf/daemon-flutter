@@ -364,9 +364,9 @@ class _NewKeyDialog extends StatefulWidget {
 class _NewKeyDialogState extends State<_NewKeyDialog> {
   bool _copied = false;
 
-  // The full key is returned in the `keyPrefix` field on creation
-  // (backend returns full key once, stored in keyPrefix at creation time)
-  String get _fullKey => widget.apiKey.keyPrefix;
+  // fullKey is returned once by the backend in the `key` field of the POST
+  // response; fall back to keyPrefix only if somehow absent.
+  String get _fullKey => widget.apiKey.fullKey ?? widget.apiKey.keyPrefix;
 
   Future<void> _copy() async {
     await Clipboard.setData(ClipboardData(text: _fullKey));
@@ -431,15 +431,16 @@ class _NewKeyDialogState extends State<_NewKeyDialog> {
                 border: Border.all(color: AppTheme.borderLight),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Text(
+                    child: SelectableText(
                       _fullKey,
                       style: const TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 12,
+                        fontSize: 11,
                         color: AppTheme.textPrimary,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),

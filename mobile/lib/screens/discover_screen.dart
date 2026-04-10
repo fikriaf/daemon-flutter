@@ -49,6 +49,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       setState: setState,
       scrollController: _chatScrollController,
       onLoginRequired: _onLoginRequired,
+      onError: (msg) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      },
     );
     _chatController.loadInitialData();
 

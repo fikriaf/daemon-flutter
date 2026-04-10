@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 import '../config/api_config.dart';
@@ -489,8 +490,10 @@ class _ApiKeyInfoTile extends StatefulWidget {
 class _ApiKeyInfoTileState extends State<_ApiKeyInfoTile> {
   bool _copied = false;
 
-  Future<void> _copyPrefix(String prefix) async {
-    await Clipboard.setData(ClipboardData(text: prefix));
+  Future<void> _copyKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final fullKey = prefs.getString('api_key') ?? widget.apiKeys.first.keyPrefix;
+    await Clipboard.setData(ClipboardData(text: fullKey));
     if (mounted) setState(() => _copied = true);
     await Future<void>.delayed(const Duration(seconds: 2));
     if (mounted) setState(() => _copied = false);
@@ -505,16 +508,19 @@ class _ApiKeyInfoTileState extends State<_ApiKeyInfoTile> {
       title: Text('API Key', style: Theme.of(context).textTheme.bodyLarge),
       subtitle: hasKeys
           ? GestureDetector(
-              onTap: () => _copyPrefix(widget.apiKeys.first.keyPrefix),
+              onTap: () => _copyKey(),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '${widget.apiKeys.first.keyPrefix}••••••••',
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
+                  Flexible(
+                    child: Text(
+                      '${widget.apiKeys.first.keyPrefix}…',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 4),

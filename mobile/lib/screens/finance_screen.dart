@@ -46,6 +46,10 @@ class _FinanceScreenState extends State<FinanceScreen> with SingleTickerProvider
       setState: setState,
       scrollController: _chatScrollController,
       onLoginRequired: _onLoginRequired,
+      onError: (msg) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      },
     );
     _chatController.loadInitialData();
 

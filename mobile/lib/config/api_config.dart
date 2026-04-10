@@ -5,62 +5,66 @@ class ApiConfig {
     'API_BASE_URL',
     defaultValue: 'https://daemon-ai-production.up.railway.app',
   );
-  
+
   static const String sandboxBaseUrl = String.fromEnvironment(
     'SANDBOX_API_BASE_URL',
     defaultValue: 'https://daemon-ai-production.up.railway.app',
   );
-  
+
   static const String apiVersion = '/v1';
-  
+
   // Get the appropriate base URL based on context
   static String getBaseUrl({bool isSandbox = false}) {
     return isSandbox ? sandboxBaseUrl : baseUrl;
   }
 
   // Chat
-  static String chatEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/chat/completions';
-  
+  static String chatEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/chat/completions';
+
   // Agent endpoints
-  static String agentMeEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/me';
-  
-  static String agentBalanceEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/balance';
-  
-  static String agentUsageEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/usage';
-  
-  static String agentChatsEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/chats';
-  
-  static String agentSettingsEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/settings';
-  
-  static String agentApiKeysEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/api-keys';
-  
-  static String agentMcpServersEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/mcp-servers';
-  
+  static String agentMeEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/me';
+
+  static String agentBalanceEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/balance';
+
+  static String agentUsageEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/usage';
+
+  static String agentChatsEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/chats';
+
+  static String agentSettingsEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/settings';
+
+  static String agentApiKeysEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/api-keys';
+
+  static String agentMcpServersEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/mcp-servers';
+
   // Discover & Finance
-  static String discoverEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/discover';
-  
-  static String financeEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/finance';
-  
+  static String discoverEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/discover';
+
+  static String financeEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/finance';
+
+  // Audit
+  static String auditEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/agent/audit';
+
   // Models & Auth
-  static String modelsEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/models';
-  
-  static String authLoginEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/auth/login';
-  
-  static String authRegisterEndpoint({bool isSandbox = false}) => 
-    '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/auth/register';
-  
+  static String modelsEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/models';
+
+  static String authLoginEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/auth/login';
+
+  static String authRegisterEndpoint({bool isSandbox = false}) =>
+      '${getBaseUrl(isSandbox: isSandbox)}$apiVersion/auth/register';
+
   static bool get isDebug => kDebugMode;
 
   // Free models available to all users (hardcoded — source of truth)

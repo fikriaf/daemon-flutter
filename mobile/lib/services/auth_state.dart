@@ -80,23 +80,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // api_key is only returned ONCE (first login ever). On subsequent logins
-      // the field is absent because the backend only stores the argon2 hash.
-      // → If absent, fall back to the key we already have saved locally.
-      // → If still absent, call the regenerate-key endpoint to get a new key.
-      String? apiKey = result.apiKey;
+      final apiKey = result.apiKey;
       if (apiKey == null || apiKey.isEmpty) {
-        apiKey = prefs.getString('api_key');
-      }
-      if ((apiKey == null || apiKey.isEmpty) && result.sessionToken != null) {
-        try {
-          apiKey = await authService.regenerateApiKey(result.sessionToken!);
-        } catch (e) {
-          throw Exception('Could not retrieve API key. Please contact support.');
-        }
-      }
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('No API key available. Please contact support or re-register.');
+        throw Exception('No API key received. Please contact support.');
       }
 
       await prefs.setString('wallet_address', walletAddress);
@@ -143,23 +129,9 @@ class AuthNotifier extends Notifier<AuthState> {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // api_key is only returned ONCE (first login ever). On subsequent logins
-      // the backend omits it because only the argon2 hash is stored.
-      // → Fall back to the locally-saved key if absent.
-      // → If still absent, call the regenerate-key endpoint to get a new key.
-      String? apiKey = result.apiKey;
+      final apiKey = result.apiKey;
       if (apiKey == null || apiKey.isEmpty) {
-        apiKey = prefs.getString('api_key');
-      }
-      if ((apiKey == null || apiKey.isEmpty) && result.sessionToken != null) {
-        try {
-          apiKey = await authService.regenerateApiKey(result.sessionToken!);
-        } catch (e) {
-          throw Exception('Could not retrieve API key. Please contact support.');
-        }
-      }
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('No API key available. Please contact support or re-register.');
+        throw Exception('No API key received. Please contact support.');
       }
 
       await prefs.setString('wallet_address', walletAddress);
@@ -246,7 +218,9 @@ class AuthNotifier extends Notifier<AuthState> {
   bool get isConnected => state.isLoggedIn;
 }
 
-final authStateProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authStateProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
 final isLoggedInProvider = Provider<bool>((ref) {
   return ref.watch(authStateProvider).isLoggedIn;

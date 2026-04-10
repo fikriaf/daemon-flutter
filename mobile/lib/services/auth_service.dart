@@ -6,11 +6,12 @@ class AuthService {
 
   AuthService(this._api);
 
-  Future<AuthResult> loginWithEmail(String email, String password, {String? walletAddress}) async {
-    final body = <String, dynamic>{
-      'email': email,
-      'password': password,
-    };
+  Future<AuthResult> loginWithEmail(
+    String email,
+    String password, {
+    String? walletAddress,
+  }) async {
+    final body = <String, dynamic>{'email': email, 'password': password};
     if (walletAddress != null && walletAddress.isNotEmpty) {
       body['wallet_address'] = walletAddress;
     }
@@ -30,7 +31,9 @@ class AuthService {
     required String publicKey,
     required String signature,
   }) async {
-    debugPrint('[Auth] loginWithWallet POST body — wallet_address: "$walletAddress" (len ${walletAddress.length}), public_key: "$publicKey" (len ${publicKey.length}), signature: "${signature.substring(0, signature.length.clamp(0, 12))}..." (len ${signature.length})');
+    debugPrint(
+      '[Auth] loginWithWallet POST body — wallet_address: "$walletAddress" (len ${walletAddress.length}), public_key: "$publicKey" (len ${publicKey.length}), signature: "${signature.substring(0, signature.length.clamp(0, 12))}..." (len ${signature.length})',
+    );
     final data = await _api.post('/v1/auth/login', {
       'wallet_address': walletAddress,
       'public_key': publicKey,
@@ -39,11 +42,12 @@ class AuthService {
     return AuthResult.fromJson(data);
   }
 
-  Future<UserRegisterResult> register(String email, String password, {String? walletAddress}) async {
-    final body = <String, dynamic>{
-      'email': email,
-      'password': password,
-    };
+  Future<UserRegisterResult> register(
+    String email,
+    String password, {
+    String? walletAddress,
+  }) async {
+    final body = <String, dynamic>{'email': email, 'password': password};
     if (walletAddress != null && walletAddress.isNotEmpty) {
       body['wallet_address'] = walletAddress;
     }
@@ -55,6 +59,25 @@ class AuthService {
   Future<Map<String, dynamic>> verifyEmail(String token) async {
     final data = await _api.post('/v1/auth/verify-email', {'token': token});
     return data;
+  }
+
+  /// Retrieve the current API key using a valid session token.
+  /// Returns the API key string.
+  /// Throws [ApiException] with specific error codes:
+  /// - `no_agent`: User has no agent yet
+  /// - `no_api_key`: No active API key
+  /// - `key_not_recoverable`: Key created before key_encrypted, needs regenerate
+  /// - `decrypt_failed`: Decryption failed
+  Future<String> getApiKey(String sessionToken) async {
+    final data = await _api.getWithBearer(
+      '/v1/auth/api-key',
+      bearerToken: sessionToken,
+    );
+    final key = data['api_key'] as String?;
+    if (key == null || key.isEmpty) {
+      throw ApiException('Server did not return an API key');
+    }
+    return key;
   }
 
   /// Deactivates the existing API key and generates a fresh one.
@@ -119,7 +142,8 @@ class AuthResult {
       email: json['email'],
       sessionToken: json['session_token'],
       apiKey: json['api_key'],
-      agents: (json['agents'] as List?)
+      agents:
+          (json['agents'] as List?)
               ?.map((e) => AgentSummary.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

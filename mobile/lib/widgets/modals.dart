@@ -259,11 +259,68 @@ class _ShareModal extends StatelessWidget {
 // ---------------------------------------------------------
 // Upgrade Modal
 // ---------------------------------------------------------
-class _UpgradeModal extends StatelessWidget {
+class _UpgradeModal extends StatefulWidget {
   const _UpgradeModal();
 
   @override
+  State<_UpgradeModal> createState() => _UpgradeModalState();
+}
+
+class _UpgradeModalState extends State<_UpgradeModal> {
+  int _selectedTab = 0; // 0=Personal, 1=Education, 2=Business
+
+  static const _tabs = ['Personal', 'Education', 'Business'];
+
+  // Plan data per tab
+  static const _plans = [
+    _PlanData(
+      name: 'Daemon Max',
+      tagline: 'Advanced AI for everyday power users',
+      price: 'US\$17',
+      priceSuffix: '/month, billed annually',
+      buttonLabel: 'Get Max',
+      features: [
+        'Access to latest AI models including GPT, Gemini, and Grok',
+        'Daemon Sandbox with full file, connector, and live agent support',
+        'Higher monthly token limits for heavy usage',
+        'Priority response speed and queue',
+        'Advanced web search with deeper source indexing',
+      ],
+    ),
+    _PlanData(
+      name: 'Daemon Edu',
+      tagline: 'Powerful AI tools for students & educators',
+      price: 'US\$9',
+      priceSuffix: '/month with valid student email',
+      buttonLabel: 'Get Edu',
+      features: [
+        'Same AI model access as Daemon Max at reduced cost',
+        'Daemon Sandbox for research, coding, and academic projects',
+        'Collaborative features for study groups',
+        'Document analysis and citation-ready summaries',
+        'Verified student & educator discount',
+      ],
+    ),
+    _PlanData(
+      name: 'Daemon Business',
+      tagline: 'AI infrastructure for teams & enterprises',
+      price: 'US\$39',
+      priceSuffix: '/seat/month, billed annually',
+      buttonLabel: 'Contact Sales',
+      features: [
+        'Unlimited seats with centralised billing',
+        'Shared workspace and team chat history',
+        'Custom MCP connectors and private tool integrations',
+        'Audit logs, SSO, and enterprise-grade security',
+        'Dedicated support and onboarding',
+      ],
+    ),
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    final plan = _plans[_selectedTab];
+
     return Container(
       decoration: const BoxDecoration(
         color: AppTheme.surface,
@@ -288,12 +345,12 @@ class _UpgradeModal extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Upgrade for a broader search experience and premium AI models.',
+            'Upgrade to unlock the full power of Daemon AI.',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          // Segmented Control Simulation
+          // Segmented tab switcher
           Container(
             decoration: BoxDecoration(
               color: AppTheme.background,
@@ -302,25 +359,29 @@ class _UpgradeModal extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.accentLink.withValues(alpha: 0.5)),
+              children: List.generate(_tabs.length, (i) {
+                final isActive = i == _selectedTab;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedTab = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: isActive
+                        ? BoxDecoration(
+                            color: AppTheme.surface,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.accentLink.withValues(alpha: 0.5)),
+                          )
+                        : null,
+                    child: Text(
+                      _tabs[i],
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: isActive ? AppTheme.accentLink : AppTheme.textSecondary,
+                          ),
+                    ),
                   ),
-                  child: Text('Personal', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.accentLink)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Education', style: Theme.of(context).textTheme.bodyMedium),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Business', style: Theme.of(context).textTheme.bodyMedium),
-                ),
-              ],
+                );
+              }),
             ),
           ),
           const SizedBox(height: 32),
@@ -339,7 +400,7 @@ class _UpgradeModal extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'perplexity pro',
+                      plan.name,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     Container(
@@ -356,15 +417,15 @@ class _UpgradeModal extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text('Advanced answers and best AI models', style: Theme.of(context).textTheme.bodyMedium),
+                Text(plan.tagline, style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 16),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('US\$17', style: Theme.of(context).textTheme.displaySmall),
+                    Text(plan.price, style: Theme.of(context).textTheme.displaySmall),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6.0, left: 4.0),
-                      child: Text('/month or equivalent, billed annually', style: Theme.of(context).textTheme.labelSmall),
+                      child: Text(plan.priceSuffix, style: Theme.of(context).textTheme.labelSmall),
                     ),
                   ],
                 ),
@@ -373,10 +434,7 @@ class _UpgradeModal extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text('Everything in Free, plus:', style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 16),
-                _FeatureCheck('Access to latest AI models, post-trained for higher accuracy'),
-                _FeatureCheck('Choose between GPT-5.2, Gemini 3.1 Pro, Grok 4.1, and more'),
-                _FeatureCheck('Better for complex questions and creating reports, documents, and apps'),
-                _FeatureCheck('Deeper sources from Perplexity index, including financial and scientific data'),
+                for (final f in plan.features) _FeatureCheck(f),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -389,7 +447,7 @@ class _UpgradeModal extends StatelessWidget {
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Get Pro'),
+                    child: Text(plan.buttonLabel),
                   ),
                 ),
               ],
@@ -399,6 +457,24 @@ class _UpgradeModal extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PlanData {
+  final String name;
+  final String tagline;
+  final String price;
+  final String priceSuffix;
+  final String buttonLabel;
+  final List<String> features;
+
+  const _PlanData({
+    required this.name,
+    required this.tagline,
+    required this.price,
+    required this.priceSuffix,
+    required this.buttonLabel,
+    required this.features,
+  });
 }
 
 class _FeatureCheck extends StatelessWidget {

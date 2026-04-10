@@ -12,6 +12,7 @@ import '../services/provider.dart';
 import '../services/agent_service.dart';
 import '../services/error_handler.dart';
 import 'global_chat_input.dart';
+import 'address_graph_widget.dart';
 
 // ─── Stream step enum ─────────────────────────────────────────────────────────
 
@@ -60,6 +61,10 @@ class ChatMessage {
   /// Used by [ChatMessagesView] to show a [ContextSummaryCard] above this
   /// bubble whenever the context changes relative to the previous inject.
   String? injectedContextLabel;
+
+  /// Graph data injected by the backend after a graph tool call.
+  /// Set after the `done` event so the graph only appears when streaming ends.
+  Map<String, dynamic>? graphData;
 
   ChatMessage.user(this.userContent, {this.injectedContextLabel})
       : role = 'user',
@@ -111,6 +116,7 @@ class ChatController {
   final ScrollController scrollController;
   final TextEditingController textController = TextEditingController();
   final VoidCallback onLoginRequired;
+  final void Function(String message)? onError;
 
   AgentInfo? agentInfo;
   String? selectedModelId;
@@ -120,11 +126,14 @@ class ChatController {
   List<ChatSource> sources = [];
   String? currentSessionId;
   bool isSearching = false;
+  // Temporary holder for graph_data received before the `done` event.
+  Map<String, dynamic>? _pendingGraphData;
 
   ChatController({
     required this.setState,
     required this.scrollController,
     required this.onLoginRequired,
+    this.onError,
   });
 
   void dispose() {
@@ -172,6 +181,7 @@ class ChatController {
       messages.add(ChatMessage.user(text, injectedContextLabel: contextLabel));
       messages.add(ChatMessage.assistant(modelName: _modelDisplayName));
       sources = [];
+      _pendingGraphData = null;
     });
     textController.clear();
     scrollToBottom();
@@ -291,6 +301,16 @@ class ChatController {
               }
             });
             scrollToBottom();
+          } else if (type == 'graph_data') {
+            // Store temporarily; will be applied to the message on `done`
+            // so the graph only appears after the stream finishes.
+            final nodes = data['nodes'];
+            final edges = data['edges'];
+            _pendingGraphData = {
+              'nodes': nodes,
+              'edges': edges,
+            };
+            debugPrint('Graph data stored: ${(nodes as List?)?.length ?? 0} nodes, ${(edges as List?)?.length ?? 0} edges');
           } else if (type == 'done') {
             final sid = data['session_id'] as String?;
             if (sid != null) setState(() => currentSessionId = sid);
@@ -306,6 +326,24 @@ class ChatController {
                     .toList();
               });
             }
+            // Attach graph data to the message now that streaming is done,
+            // and also mark isSearching=false in the same setState so the
+            // graph condition (!isSearching && msg.graphData != null) is
+            // satisfied in a single rebuild.
+            final captured = _pendingGraphData;
+            _pendingGraphData = null;
+            setState(() {
+              isSearching = false;
+              if (messages.isNotEmpty && messages.last.role == 'assistant') {
+                messages.last.streamStep = StreamStep.done;
+                if (captured != null) {
+                  messages.last.graphData = captured;
+                  debugPrint('Graph data attached to message: ${(captured['nodes'] as List?)?.length ?? 0} nodes');
+                }
+              }
+            });
+            // Scroll after frame so the graph widget is fully laid out.
+            WidgetsBinding.instance.addPostFrameCallback((_) => scrollToBottom());
           }
         } catch (e) {
           debugPrint('Parse error: $e');
@@ -348,6 +386,7 @@ class ChatController {
       messages.add(ChatMessage.user(newText, injectedContextLabel: contextLabel));
       messages.add(ChatMessage.assistant(modelName: _modelDisplayName));
       sources = [];
+      _pendingGraphData = null;
     });
     textController.clear();
     scrollToBottom();
@@ -383,10 +422,11 @@ class ChatController {
         isSearching = false;
       });
       scrollToBottom();
-    } catch (e) {
-      debugPrint('loadSession error: $e');
+    } catch (e, st) {
       if (isAuthError(e)) {
         onLoginRequired();
+      } else {
+        onError?.call('Could not load session: $e');
       }
       setState(() => isSearching = false);
     }
@@ -666,6 +706,7 @@ class ChatAIBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isStreaming = isLast && isSearching;
+    debugPrint('ChatAIBubble[$msgIdx]: isLast=$isLast isSearching=$isSearching graphData=${msg.graphData != null ? "SET(${(msg.graphData!['nodes'] as List?)?.length ?? 0} nodes)" : "null"}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -698,6 +739,15 @@ class ChatAIBubble extends StatelessWidget {
           ChatAnimatedEntry(
             key: ValueKey('sources_$msgIdx'),
             child: _SourcesWidget(sources: sources),
+          ),
+        ],
+
+        // Address graph — shown after streaming ends if backend sent graph_data
+        if (!isSearching && isLast && msg.graphData != null) ...[
+          const SizedBox(height: 16),
+          ChatAnimatedEntry(
+            key: ValueKey('graph_$msgIdx'),
+            child: AddressGraphWidget(graphData: msg.graphData!),
           ),
         ],
 
