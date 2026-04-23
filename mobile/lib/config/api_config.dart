@@ -70,6 +70,11 @@ class ApiConfig {
   // Free models available to all users (hardcoded — source of truth)
   static const List<Map<String, String>> freeModels = [
     {
+      'id': 'daemon-free',
+      'name': 'Daemon Free',
+      'short': 'Daemon Free',
+    },
+    {
       'id': 'stepfun/step-3.5-flash:free',
       'name': 'StepFun 3.5 Flash (Free)',
       'short': 'StepFun',
@@ -81,7 +86,7 @@ class ApiConfig {
     },
   ];
 
-  static const String defaultFreeModelId = 'stepfun/step-3.5-flash:free';
+  static const String defaultFreeModelId = 'daemon-free';
 
   /// Short display label for chat input button. Returns null if id not found.
   static String? shortLabelForModel(String? id) {

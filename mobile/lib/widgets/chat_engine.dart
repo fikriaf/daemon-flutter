@@ -164,7 +164,7 @@ class ChatController {
   String get _modelId =>
       selectedModelId ??
       agentInfo?.defaultModelId ??
-      'stepfun/step-3.5-flash:free';
+      ApiConfig.defaultFreeModelId;
 
   String get _modelDisplayName =>
       selectedModelName ?? _modelId.split('/').last.split(':').first;

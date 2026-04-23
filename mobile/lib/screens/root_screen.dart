@@ -128,8 +128,11 @@ class _RootScreenState extends State<RootScreen> {
   final ScrollController _scrollController = ScrollController();
 
   AgentInfo? _agentInfo;
-  String? _selectedModelId;
-  String? _selectedModelName;
+  String? _selectedModelId = ApiConfig.defaultFreeModelId;
+  String? _selectedModelName = ApiConfig.freeModels
+      .firstWhere((m) => m['id'] == ApiConfig.defaultFreeModelId,
+          orElse: () => {'name': 'Daemon Free'})['name'];
+
 
   final List<ChatMessage> _messages = [];
   List<Source> _sources = [];
@@ -285,7 +288,7 @@ class _RootScreenState extends State<RootScreen> {
 
     final modelId = _selectedModelId ??
         _agentInfo?.defaultModelId ??
-        'stepfun/step-3.5-flash:free';
+        ApiConfig.defaultFreeModelId;
     final modelDisplayName = _selectedModelName ??
         modelId.split('/').last.split(':').first;
 
@@ -310,7 +313,7 @@ class _RootScreenState extends State<RootScreen> {
     }
     final model = _selectedModelId ??
         _agentInfo?.defaultModelId ??
-        'stepfun/step-3.5-flash:free';
+        ApiConfig.defaultFreeModelId;
 
     try {
       // Build history excluding the empty assistant slot at end
@@ -490,8 +493,9 @@ class _RootScreenState extends State<RootScreen> {
   Future<void> _tryFallbackModel(String message) async {
     try {
       final fallbackModels = [
+        ApiConfig.defaultFreeModelId,
         'stepfun/step-3.5-flash:free',
-        'arcee-ai/trinity-large-preview:free'
+        'arcee-ai/trinity-large-preview:free',
       ];
       for (final fallbackModel in fallbackModels) {
         try {
@@ -782,7 +786,7 @@ class _RootScreenState extends State<RootScreen> {
     // Add a fresh assistant slot and stream
     final modelId = _selectedModelId ??
         _agentInfo?.defaultModelId ??
-        'stepfun/step-3.5-flash:free';
+        ApiConfig.defaultFreeModelId;
     final modelDisplayName = _selectedModelName ??
         modelId.split('/').last.split(':').first;
     setState(() {
